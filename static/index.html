@@ -18,8 +18,8 @@
   </div>
 
   <div class="flex items-end justify-between gap-8">
-    <button id="add-current-track-btn" disabled
-      class="text-2xl px-6 py-4 rounded-2xl bg-slate-700 text-slate-500 cursor-not-allowed">
+    <button id="add-current-track-btn" onclick="addCurrentTrack()"
+      class="text-2xl px-6 py-4 rounded-2xl bg-slate-700 active:bg-slate-600 transition-colors">
       + Add Current Track
     </button>
 
@@ -70,38 +70,66 @@
 </div>
 
 <script>
-// --- Mock data (replaced with real Volumio/Roon data in Phase 3) ---
-const mockTracks = [
-  { id: "mock-1", title: "Come Away With Me", artist: "Norah Jones", duration: "3:19", seekLabel: "from 0:45" },
-  { id: "mock-2", title: "So What", artist: "Miles Davis", duration: "9:22", seekLabel: "from 1:10" },
-  { id: "mock-3", title: "Concierto de Aranjuez: II. Adagio", artist: "John Williams", duration: "11:12", seekLabel: "from 2:30" },
-  { id: "mock-4", title: "Take Five", artist: "Dave Brubeck", duration: "5:24", seekLabel: "from 0:20" },
-];
-
 const TRIAL_OPTIONS = [5, 10, 15, 20];
 const MOCK_TRIAL_DURATION_SECONDS = 30; // matches session_config.json default in Phase 5
 
+let tracks = [];
 let selectedTrackId = null;
 let trialCount = null;
 let currentTrial = 1;
 let sessionSeed = null;
 let sessionTimer = null;
 
+function formatDuration(seconds) {
+  if (!seconds) return "--:--";
+  const m = Math.floor(seconds / 60);
+  const s = Math.round(seconds % 60);
+  return `${m}:${s.toString().padStart(2, "0")}`;
+}
+
+async function loadTracks() {
+  const res = await fetch("/api/tracks");
+  tracks = await res.json();
+  renderTrackList();
+}
+
+async function addCurrentTrack() {
+  const res = await fetch("/api/tracks/add-current", { method: "POST" });
+  const result = await res.json();
+  if (result.error) {
+    alert(result.error);
+    return;
+  }
+  await loadTracks();
+}
+
 function renderTrackList() {
   const el = document.getElementById("track-list");
-  el.innerHTML = mockTracks.map(t => `
+  if (tracks.length === 0) {
+    el.innerHTML = `<div class="text-xl text-slate-500 px-2 py-8 text-center">
+      No tracks yet — play something on Volumio, then tap "+ Add Current Track"
+    </div>`;
+    return;
+  }
+  el.innerHTML = tracks.map(t => `
     <button class="w-full text-left px-5 py-4 rounded-xl transition-colors border-2 ${
       t.id === selectedTrackId
         ? "bg-emerald-900 border-emerald-500"
         : "bg-slate-700 border-transparent active:bg-slate-600"
     }"
       onclick="selectTrack('${t.id}')">
-      <div class="flex items-center justify-between">
-        <div>
-          <div class="text-2xl font-semibold">${t.title}</div>
-          <div class="text-lg text-slate-400">${t.artist} · ${t.seekLabel}</div>
+      <div class="flex items-center gap-4">
+        ${t.album_art_url
+          ? `<img src="${t.album_art_url}" class="w-16 h-16 rounded-lg object-cover flex-shrink-0" loading="lazy">`
+          : `<div class="w-16 h-16 rounded-lg bg-slate-600 flex-shrink-0"></div>`
+        }
+        <div class="flex-1 flex items-center justify-between min-w-0">
+          <div class="min-w-0">
+            <div class="text-2xl font-semibold truncate">${t.title}</div>
+            <div class="text-lg text-slate-400 truncate">${t.artist} · from ${formatDuration(t.seek_seconds)}</div>
+          </div>
+          <div class="text-xl text-slate-400 font-mono flex-shrink-0 ml-4">${formatDuration(t.duration_seconds)}</div>
         </div>
-        <div class="text-xl text-slate-400 font-mono">${t.duration}</div>
       </div>
     </button>
   `).join("");
@@ -188,11 +216,15 @@ function connectWS() {
   ws.onmessage = (event) => {
     const msg = JSON.parse(event.data);
     console.log("ws message", msg);
+    if (msg.event === "tracks_updated") {
+      tracks = msg.tracks;
+      renderTrackList();
+    }
   };
   ws.onclose = () => setTimeout(connectWS, 2000);
 }
 
-renderTrackList();
+loadTracks();
 renderTrialPicker();
 connectWS();
 </script>
