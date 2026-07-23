@@ -17,21 +17,22 @@
     <div id="track-list" class="space-y-2"></div>
   </div>
 
-  <div class="flex items-center justify-between gap-8">
+  <div class="flex items-end justify-between gap-8">
     <button id="add-current-track-btn" disabled
       class="text-2xl px-6 py-4 rounded-2xl bg-slate-700 text-slate-500 cursor-not-allowed">
       + Add Current Track
     </button>
 
-    <div class="flex items-center gap-4 bg-slate-800 rounded-2xl px-6 py-4">
-      <span class="text-2xl text-slate-300">Trials</span>
-      <button onclick="changeTrials(-5)" class="text-3xl w-14 h-14 rounded-xl bg-slate-700 active:bg-slate-600">-</button>
-      <span id="trial-count" class="text-4xl font-bold w-16 text-center">10</span>
-      <button onclick="changeTrials(5)" class="text-3xl w-14 h-14 rounded-xl bg-slate-700 active:bg-slate-600">+</button>
+    <div class="flex flex-col items-center gap-2 bg-slate-800 rounded-2xl px-6 py-4">
+      <div class="flex items-center gap-3">
+        <span class="text-2xl text-slate-300 mr-2">Trials</span>
+        <div id="trial-picker" class="flex gap-2"></div>
+      </div>
+      <div id="trial-estimate" class="text-lg text-slate-500"></div>
     </div>
 
-    <button onclick="startSession()"
-      class="text-3xl font-bold px-10 py-5 rounded-2xl bg-emerald-600 active:bg-emerald-500">
+    <button id="start-session-btn" onclick="startSession()" disabled
+      class="text-3xl font-bold px-10 py-5 rounded-2xl bg-slate-700 text-slate-500 cursor-not-allowed transition-colors">
       Start Session
     </button>
   </div>
@@ -69,14 +70,19 @@
 </div>
 
 <script>
-// --- Mock data (replaced with real Roon data in Phase 3) ---
+// --- Mock data (replaced with real Volumio/Roon data in Phase 3) ---
 const mockTracks = [
-  { id: "mock-1", title: "Track One — Artist A" },
-  { id: "mock-2", title: "Track Two — Artist B" },
-  { id: "mock-3", title: "Track Three — Artist C" },
+  { id: "mock-1", title: "Come Away With Me", artist: "Norah Jones", duration: "3:19", seekLabel: "from 0:45" },
+  { id: "mock-2", title: "So What", artist: "Miles Davis", duration: "9:22", seekLabel: "from 1:10" },
+  { id: "mock-3", title: "Concierto de Aranjuez: II. Adagio", artist: "John Williams", duration: "11:12", seekLabel: "from 2:30" },
+  { id: "mock-4", title: "Take Five", artist: "Dave Brubeck", duration: "5:24", seekLabel: "from 0:20" },
 ];
 
-let trialCount = 10;
+const TRIAL_OPTIONS = [5, 10, 15, 20];
+const MOCK_TRIAL_DURATION_SECONDS = 30; // matches session_config.json default in Phase 5
+
+let selectedTrackId = null;
+let trialCount = null;
 let currentTrial = 1;
 let sessionSeed = null;
 let sessionTimer = null;
@@ -84,20 +90,59 @@ let sessionTimer = null;
 function renderTrackList() {
   const el = document.getElementById("track-list");
   el.innerHTML = mockTracks.map(t => `
-    <button class="w-full text-left text-2xl px-5 py-4 rounded-xl bg-slate-700 active:bg-emerald-700 transition-colors"
+    <button class="w-full text-left px-5 py-4 rounded-xl transition-colors border-2 ${
+      t.id === selectedTrackId
+        ? "bg-emerald-900 border-emerald-500"
+        : "bg-slate-700 border-transparent active:bg-slate-600"
+    }"
       onclick="selectTrack('${t.id}')">
-      ${t.title}
+      <div class="flex items-center justify-between">
+        <div>
+          <div class="text-2xl font-semibold">${t.title}</div>
+          <div class="text-lg text-slate-400">${t.artist} · ${t.seekLabel}</div>
+        </div>
+        <div class="text-xl text-slate-400 font-mono">${t.duration}</div>
+      </div>
     </button>
   `).join("");
 }
 
 function selectTrack(id) {
-  console.log("selected track", id);
+  selectedTrackId = id;
+  renderTrackList();
+  updateStartButton();
 }
 
-function changeTrials(delta) {
-  trialCount = Math.max(5, Math.min(20, trialCount + delta));
-  document.getElementById("trial-count").textContent = trialCount;
+function renderTrialPicker() {
+  const el = document.getElementById("trial-picker");
+  el.innerHTML = TRIAL_OPTIONS.map(n => `
+    <button onclick="setTrials(${n})"
+      class="text-2xl font-bold w-16 h-16 rounded-xl transition-colors ${
+        n === trialCount ? "bg-emerald-600" : "bg-slate-700 active:bg-slate-600"
+      }">
+      ${n}
+    </button>
+  `).join("");
+  const estimateEl = document.getElementById("trial-estimate");
+  estimateEl.textContent = trialCount
+    ? `~${Math.round(trialCount * MOCK_TRIAL_DURATION_SECONDS / 60)} min`
+    : "";
+}
+
+function setTrials(n) {
+  trialCount = n;
+  renderTrialPicker();
+}
+
+function updateStartButton() {
+  const btn = document.getElementById("start-session-btn");
+  const ready = selectedTrackId !== null && trialCount !== null;
+  btn.disabled = !ready;
+  btn.classList.toggle("bg-emerald-600", ready);
+  btn.classList.toggle("active:bg-emerald-500", ready);
+  btn.classList.toggle("bg-slate-700", !ready);
+  btn.classList.toggle("text-slate-500", !ready);
+  btn.classList.toggle("cursor-not-allowed", !ready);
 }
 
 function showState(name) {
@@ -148,6 +193,7 @@ function connectWS() {
 }
 
 renderTrackList();
+renderTrialPicker();
 connectWS();
 </script>
 </body>
