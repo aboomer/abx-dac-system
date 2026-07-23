@@ -28,6 +28,14 @@ def init_db():
                 created_at  TEXT NOT NULL
             )
         """)
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS dac_paths (
+                id          INTEGER PRIMARY KEY AUTOINCREMENT,
+                name        TEXT NOT NULL UNIQUE,
+                notes       TEXT,
+                created_at  TEXT NOT NULL
+            )
+        """)
         conn.commit()
     finally:
         conn.close()

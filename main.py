@@ -11,7 +11,7 @@ from fastapi.staticfiles import StaticFiles
 from api.clicker import watch_clicker
 from api.db import init_db
 from api.volumio_backend import VolumioBackend
-from api import routes_profiles
+from api import routes_profiles, routes_dac_paths
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("main")
@@ -98,6 +98,7 @@ async def lifespan(app: FastAPI):
 app = FastAPI(lifespan=lifespan)
 app.mount("/static", StaticFiles(directory="static", html=True), name="static")
 app.include_router(routes_profiles.router, prefix="/api/profiles")
+app.include_router(routes_dac_paths.router, prefix="/api/dac-paths")
 
 
 @app.get("/")

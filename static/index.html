@@ -6,10 +6,18 @@
 <title>ABX DAC System</title>
 <script src="https://cdn.tailwindcss.com"></script>
 </head>
-<body class="bg-slate-900 text-white h-screen w-screen overflow-hidden font-sans">
+<body class="bg-slate-900 text-white h-screen w-screen overflow-hidden font-sans flex flex-col">
 
-<!-- STATE 1: SETUP -->
-<div id="state-setup" class="h-full w-full flex flex-col p-8">
+<nav id="nav-bar" class="flex items-center gap-2 px-6 py-3 bg-slate-950 flex-shrink-0">
+  <button data-nav-page="setup" class="text-xl px-5 py-2 rounded-xl bg-slate-800 active:bg-slate-700">Setup</button>
+  <button data-nav-page="calibration" class="text-xl px-5 py-2 rounded-xl bg-slate-800 active:bg-slate-700">Calibration</button>
+  <button data-nav-page="guide" class="text-xl px-5 py-2 rounded-xl bg-slate-800 active:bg-slate-700">Guide</button>
+</nav>
+
+<div class="flex-1 min-h-0 relative">
+
+<!-- PAGE: SETUP -->
+<section id="page-setup" class="absolute inset-0 flex flex-col p-8">
   <div class="flex items-center justify-between mb-6">
     <h1 class="text-4xl font-bold">ABX DAC System</h1>
     <div class="flex items-center gap-3 bg-slate-800 rounded-2xl px-5 py-3">
@@ -48,10 +56,10 @@
       Start Session
     </button>
   </div>
-</div>
+</section>
 
-<!-- STATE 2: ACTIVE SESSION -->
-<div id="state-session" class="hidden h-full w-full flex flex-col items-center justify-center gap-10">
+<!-- PAGE: ACTIVE SESSION (nav hidden) -->
+<section id="page-session" class="hidden absolute inset-0 flex flex-col items-center justify-center gap-10">
   <div class="text-2xl text-slate-400">Session Seed</div>
   <div id="session-seed" class="text-6xl font-mono font-bold">----</div>
 
@@ -60,10 +68,10 @@
   <div id="playback-status" class="text-4xl font-semibold px-8 py-4 rounded-2xl bg-slate-700">
     Waiting
   </div>
-</div>
+</section>
 
-<!-- STATE 3: SESSION COMPLETE -->
-<div id="state-complete" class="hidden h-full w-full flex flex-col items-center justify-center gap-8 p-8">
+<!-- PAGE: SESSION COMPLETE -->
+<section id="page-complete" class="hidden absolute inset-0 flex flex-col items-center justify-center gap-8 p-8">
   <div class="text-4xl font-bold text-emerald-400">Session Complete</div>
 
   <div class="text-2xl text-slate-400">Session Seed</div>
@@ -79,214 +87,44 @@
     class="text-3xl font-bold px-10 py-5 rounded-2xl bg-emerald-600 active:bg-emerald-500 mt-4">
     New Session
   </button>
+</section>
+
+<!-- PAGE: CALIBRATION -->
+<section id="page-calibration" class="hidden absolute inset-0 flex flex-col p-8">
+  <h1 class="text-4xl font-bold mb-6">Calibration</h1>
+
+  <div class="flex-1 overflow-y-auto mb-6 bg-slate-800 rounded-2xl p-4">
+    <div class="text-2xl mb-3 text-slate-300">DAC Paths</div>
+    <div id="dac-path-list" class="space-y-2"></div>
+  </div>
+
+  <button onclick="promptNewDacPath()"
+    class="text-2xl px-6 py-4 rounded-2xl bg-slate-700 active:bg-slate-600 transition-colors self-start">
+    + Add DAC Path
+  </button>
+
+  <div class="mt-6 text-lg text-slate-500">
+    Live audio level meter arrives in a later build stage.
+  </div>
+</section>
+
+<!-- PAGE: GUIDE -->
+<section id="page-guide" class="hidden absolute inset-0 flex flex-col p-8 overflow-y-auto">
+  <h1 class="text-4xl font-bold mb-6">Guide</h1>
+
+  <div class="bg-slate-800 rounded-2xl p-6 max-w-2xl">
+    <div class="text-2xl font-semibold mb-4">Remote Control</div>
+    <div class="space-y-3 text-xl">
+      <div class="flex justify-between"><span class="text-slate-400">Forward button</span><span>Next trial</span></div>
+      <div class="flex justify-between"><span class="text-slate-400">Back button</span><span>Replay trial</span></div>
+      <div class="flex justify-between"><span class="text-slate-400">Pointer button (hold)</span><span>Reveal DAC identity</span></div>
+      <div class="flex justify-between"><span class="text-slate-400">Pointer button (release)</span><span>Hide DAC identity</span></div>
+    </div>
+  </div>
+</section>
+
 </div>
 
-<script>
-const TRIAL_OPTIONS = [5, 10, 15, 20];
-const MOCK_TRIAL_DURATION_SECONDS = 30; // matches session_config.json default in Phase 5
-
-let profiles = [];
-let currentProfileId = localStorage.getItem("abx_profile_id") || null;
-
-async function loadProfiles() {
-  const res = await fetch("/api/profiles");
-  profiles = await res.json();
-  const select = document.getElementById("profile-select");
-
-  if (profiles.length === 0) {
-    select.innerHTML = `<option value="">No profiles yet</option>`;
-    currentProfileId = null;
-    return;
-  }
-
-  if (!currentProfileId || !profiles.some(p => String(p.id) === String(currentProfileId))) {
-    currentProfileId = String(profiles[0].id);
-  }
-  localStorage.setItem("abx_profile_id", currentProfileId);
-
-  select.innerHTML = profiles.map(p => `
-    <option value="${p.id}" ${String(p.id) === currentProfileId ? "selected" : ""}>${p.name}</option>
-  `).join("");
-}
-
-function selectProfile(id) {
-  currentProfileId = id;
-  localStorage.setItem("abx_profile_id", id);
-}
-
-async function promptNewProfile() {
-  const name = prompt("Profile name:");
-  if (!name || !name.trim()) return;
-  const res = await fetch("/api/profiles", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ name: name.trim() }),
-  });
-  if (!res.ok) {
-    const err = await res.json();
-    alert(err.detail || "Could not create profile");
-    return;
-  }
-  const created = await res.json();
-  currentProfileId = String(created.id);
-  await loadProfiles();
-}
-
-let tracks = [];
-let selectedTrackId = null;
-let trialCount = null;
-let currentTrial = 1;
-let sessionSeed = null;
-let sessionTimer = null;
-
-function formatDuration(seconds) {
-  if (!seconds) return "--:--";
-  const m = Math.floor(seconds / 60);
-  const s = Math.round(seconds % 60);
-  return `${m}:${s.toString().padStart(2, "0")}`;
-}
-
-async function loadTracks() {
-  const res = await fetch("/api/tracks");
-  tracks = await res.json();
-  renderTrackList();
-}
-
-async function addCurrentTrack() {
-  const res = await fetch("/api/tracks/add-current", { method: "POST" });
-  const result = await res.json();
-  if (result.error) {
-    alert(result.error);
-    return;
-  }
-  await loadTracks();
-}
-
-function renderTrackList() {
-  const el = document.getElementById("track-list");
-  if (tracks.length === 0) {
-    el.innerHTML = `<div class="text-xl text-slate-500 px-2 py-8 text-center">
-      No tracks yet — play something on Volumio, then tap "+ Add Current Track"
-    </div>`;
-    return;
-  }
-  el.innerHTML = tracks.map(t => `
-    <button class="w-full text-left px-5 py-4 rounded-xl transition-colors border-2 ${
-      t.id === selectedTrackId
-        ? "bg-emerald-900 border-emerald-500"
-        : "bg-slate-700 border-transparent active:bg-slate-600"
-    }"
-      onclick="selectTrack('${t.id}')">
-      <div class="flex items-center gap-4">
-        ${t.album_art_url
-          ? `<img src="${t.album_art_url}" class="w-16 h-16 rounded-lg object-cover flex-shrink-0" loading="lazy">`
-          : `<div class="w-16 h-16 rounded-lg bg-slate-600 flex-shrink-0"></div>`
-        }
-        <div class="flex-1 flex items-center justify-between min-w-0">
-          <div class="min-w-0">
-            <div class="text-2xl font-semibold truncate">${t.title}</div>
-            <div class="text-lg text-slate-400 truncate">${t.artist} · from ${formatDuration(t.seek_seconds)}</div>
-          </div>
-          <div class="text-xl text-slate-400 font-mono flex-shrink-0 ml-4">${formatDuration(t.duration_seconds)}</div>
-        </div>
-      </div>
-    </button>
-  `).join("");
-}
-
-function selectTrack(id) {
-  selectedTrackId = id;
-  renderTrackList();
-  updateStartButton();
-}
-
-function renderTrialPicker() {
-  const el = document.getElementById("trial-picker");
-  el.innerHTML = TRIAL_OPTIONS.map(n => `
-    <button onclick="setTrials(${n})"
-      class="text-2xl font-bold w-16 h-16 rounded-xl transition-colors ${
-        n === trialCount ? "bg-emerald-600" : "bg-slate-700 active:bg-slate-600"
-      }">
-      ${n}
-    </button>
-  `).join("");
-  const estimateEl = document.getElementById("trial-estimate");
-  estimateEl.textContent = trialCount
-    ? `~${Math.round(trialCount * MOCK_TRIAL_DURATION_SECONDS / 60)} min`
-    : "";
-}
-
-function setTrials(n) {
-  trialCount = n;
-  renderTrialPicker();
-}
-
-function updateStartButton() {
-  const btn = document.getElementById("start-session-btn");
-  const ready = selectedTrackId !== null && trialCount !== null;
-  btn.disabled = !ready;
-  btn.classList.toggle("bg-emerald-600", ready);
-  btn.classList.toggle("active:bg-emerald-500", ready);
-  btn.classList.toggle("bg-slate-700", !ready);
-  btn.classList.toggle("text-slate-500", !ready);
-  btn.classList.toggle("cursor-not-allowed", !ready);
-}
-
-function showState(name) {
-  ["setup", "session", "complete"].forEach(s => {
-    document.getElementById(`state-${s}`).classList.toggle("hidden", s !== name);
-  });
-}
-
-function startSession() {
-  sessionSeed = Math.floor(1000 + Math.random() * 9000);
-  currentTrial = 1;
-  document.getElementById("session-seed").textContent = sessionSeed;
-  document.getElementById("trial-counter").textContent = `Trial ${currentTrial} of ${trialCount}`;
-  document.getElementById("playback-status").textContent = "Playing";
-  showState("session");
-
-  // Mock trial advance on a timer — replaced by real next-trial API in Phase 5
-  clearInterval(sessionTimer);
-  sessionTimer = setInterval(() => {
-    currentTrial++;
-    if (currentTrial > trialCount) {
-      clearInterval(sessionTimer);
-      completeSession();
-      return;
-    }
-    document.getElementById("trial-counter").textContent = `Trial ${currentTrial} of ${trialCount}`;
-  }, 4000);
-}
-
-function completeSession() {
-  document.getElementById("complete-seed").textContent = sessionSeed;
-  document.getElementById("complete-trials").textContent = `${trialCount} trials completed`;
-  showState("complete");
-}
-
-function newSession() {
-  showState("setup");
-}
-
-// --- WebSocket connection for real-time state push ---
-function connectWS() {
-  const ws = new WebSocket(`ws://${location.host}/ws`);
-  ws.onmessage = (event) => {
-    const msg = JSON.parse(event.data);
-    console.log("ws message", msg);
-    if (msg.event === "tracks_updated") {
-      tracks = msg.tracks;
-      renderTrackList();
-    }
-  };
-  ws.onclose = () => setTimeout(connectWS, 2000);
-}
-
-loadProfiles();
-loadTracks();
-renderTrialPicker();
-connectWS();
-</script>
+<script type="module" src="/static/js/main.js"></script>
 </body>
 </html>
