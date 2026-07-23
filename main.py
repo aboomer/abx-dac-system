@@ -9,7 +9,9 @@ from fastapi.responses import RedirectResponse
 from fastapi.staticfiles import StaticFiles
 
 from api.clicker import watch_clicker
+from api.db import init_db
 from api.volumio_backend import VolumioBackend
+from api import routes_profiles
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("main")
@@ -75,6 +77,8 @@ def save_tracks(tracks: list):
 async def lifespan(app: FastAPI):
     global backend
 
+    init_db()
+
     clicker_task = asyncio.create_task(watch_clicker(next_trial, replay_trial, reveal, hide))
 
     config = load_backend_config()
@@ -93,6 +97,7 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(lifespan=lifespan)
 app.mount("/static", StaticFiles(directory="static", html=True), name="static")
+app.include_router(routes_profiles.router, prefix="/api/profiles")
 
 
 @app.get("/")

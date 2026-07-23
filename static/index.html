@@ -10,7 +10,19 @@
 
 <!-- STATE 1: SETUP -->
 <div id="state-setup" class="h-full w-full flex flex-col p-8">
-  <h1 class="text-4xl font-bold mb-6">ABX DAC System</h1>
+  <div class="flex items-center justify-between mb-6">
+    <h1 class="text-4xl font-bold">ABX DAC System</h1>
+    <div class="flex items-center gap-3 bg-slate-800 rounded-2xl px-5 py-3">
+      <span class="text-xl text-slate-400">Profile</span>
+      <select id="profile-select" onchange="selectProfile(this.value)"
+        class="text-xl bg-slate-700 rounded-xl px-4 py-2 border-none">
+      </select>
+      <button onclick="promptNewProfile()"
+        class="text-xl px-4 py-2 rounded-xl bg-slate-700 active:bg-slate-600">
+        + New
+      </button>
+    </div>
+  </div>
 
   <div class="flex-1 overflow-y-auto mb-6 bg-slate-800 rounded-2xl p-4">
     <div class="text-2xl mb-3 text-slate-300">Select a track</div>
@@ -72,6 +84,53 @@
 <script>
 const TRIAL_OPTIONS = [5, 10, 15, 20];
 const MOCK_TRIAL_DURATION_SECONDS = 30; // matches session_config.json default in Phase 5
+
+let profiles = [];
+let currentProfileId = localStorage.getItem("abx_profile_id") || null;
+
+async function loadProfiles() {
+  const res = await fetch("/api/profiles");
+  profiles = await res.json();
+  const select = document.getElementById("profile-select");
+
+  if (profiles.length === 0) {
+    select.innerHTML = `<option value="">No profiles yet</option>`;
+    currentProfileId = null;
+    return;
+  }
+
+  if (!currentProfileId || !profiles.some(p => String(p.id) === String(currentProfileId))) {
+    currentProfileId = String(profiles[0].id);
+  }
+  localStorage.setItem("abx_profile_id", currentProfileId);
+
+  select.innerHTML = profiles.map(p => `
+    <option value="${p.id}" ${String(p.id) === currentProfileId ? "selected" : ""}>${p.name}</option>
+  `).join("");
+}
+
+function selectProfile(id) {
+  currentProfileId = id;
+  localStorage.setItem("abx_profile_id", id);
+}
+
+async function promptNewProfile() {
+  const name = prompt("Profile name:");
+  if (!name || !name.trim()) return;
+  const res = await fetch("/api/profiles", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ name: name.trim() }),
+  });
+  if (!res.ok) {
+    const err = await res.json();
+    alert(err.detail || "Could not create profile");
+    return;
+  }
+  const created = await res.json();
+  currentProfileId = String(created.id);
+  await loadProfiles();
+}
 
 let tracks = [];
 let selectedTrackId = null;
@@ -224,6 +283,7 @@ function connectWS() {
   ws.onclose = () => setTimeout(connectWS, 2000);
 }
 
+loadProfiles();
 loadTracks();
 renderTrialPicker();
 connectWS();
