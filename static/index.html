@@ -47,30 +47,34 @@
     </button>
   </div>
 
-  <div class="flex-1 overflow-y-auto mb-6 bg-slate-800 rounded-2xl p-4">
-    <div class="text-2xl mb-3 text-slate-300">Select a track</div>
-    <div id="track-list" class="space-y-2"></div>
+  <div class="flex-1 bg-slate-800 rounded-2xl p-6 mb-6 flex flex-col items-center justify-center">
+    <div id="setup-summary" class="text-2xl text-slate-400 text-center">
+      Select or create a session setup above
+    </div>
   </div>
 
-  <div class="flex items-end justify-between gap-8">
-    <button id="add-current-track-btn" onclick="addCurrentTrack()"
+  <div class="flex items-end justify-end gap-8">
+    <button onclick="handleStartFreePlay()"
       class="text-2xl px-6 py-4 rounded-2xl bg-slate-700 active:bg-slate-600 transition-colors">
-      + Add Current Track
+      Free Play
     </button>
-
-    <div class="flex flex-col items-center gap-2 bg-slate-800 rounded-2xl px-6 py-4">
-      <div class="flex items-center gap-3">
-        <span class="text-2xl text-slate-300 mr-2">Trials</span>
-        <div id="trial-picker" class="flex gap-2"></div>
-      </div>
-      <div id="trial-estimate" class="text-lg text-slate-500"></div>
-    </div>
 
     <button id="start-session-btn" onclick="startSession()" disabled
       class="text-3xl font-bold px-10 py-5 rounded-2xl bg-slate-700 text-slate-500 cursor-not-allowed transition-colors">
       Start Session
     </button>
   </div>
+</section>
+
+<!-- PAGE: FREE PLAY (nav hidden) -->
+<section id="page-free_play" class="hidden absolute inset-0 flex flex-col items-center justify-center gap-10">
+  <div class="text-2xl text-slate-400">Free Play</div>
+  <div id="free-play-dac-path" class="text-6xl font-bold">—</div>
+  <div class="text-xl text-slate-500">Use remote Next/Back to switch DAC path</div>
+  <button onclick="handleStopFreePlay()"
+    class="text-3xl font-bold px-10 py-5 rounded-2xl bg-slate-700 active:bg-slate-600">
+    Stop
+  </button>
 </section>
 
 <!-- PAGE: ACTIVE SESSION (nav hidden) -->
@@ -149,6 +153,51 @@
       Close
     </button>
   </div>
+  <div class="bg-slate-800 rounded-2xl p-5 mb-6 flex-shrink-0">
+    <div class="text-2xl font-semibold mb-4">Preferences</div>
+    <div class="grid grid-cols-2 gap-4">
+      <div>
+        <div class="text-lg text-slate-400 mb-2">Gap between trials</div>
+        <div class="flex gap-2">
+          <button id="pref-gap-fixed-btn" onclick="setPrefGapMode('fixed')" class="text-lg px-4 py-2 rounded-lg bg-slate-700">Fixed</button>
+          <button id="pref-gap-wait-btn" onclick="setPrefGapMode('wait_button')" class="text-lg px-4 py-2 rounded-lg bg-slate-700">Wait for button</button>
+        </div>
+        <div id="pref-gap-seconds-row" class="flex items-center gap-2 mt-2">
+          <button onclick="nudgePrefGapSeconds(-0.5)" class="text-lg w-9 h-9 rounded-lg bg-slate-700">-</button>
+          <span id="pref-gap-seconds-value" class="text-lg font-mono w-12 text-center">3.0s</span>
+          <button onclick="nudgePrefGapSeconds(0.5)" class="text-lg w-9 h-9 rounded-lg bg-slate-700">+</button>
+        </div>
+      </div>
+
+      <div>
+        <div class="text-lg text-slate-400 mb-2">Identity mode</div>
+        <div class="flex gap-2">
+          <button id="pref-identity-blind-btn" onclick="setPrefIdentityMode('blind')" class="text-lg px-4 py-2 rounded-lg bg-slate-700">Blind</button>
+          <button id="pref-identity-alias-btn" onclick="setPrefIdentityMode('alias')" class="text-lg px-4 py-2 rounded-lg bg-slate-700">Alias</button>
+          <button id="pref-identity-visible-btn" onclick="setPrefIdentityMode('visible')" class="text-lg px-4 py-2 rounded-lg bg-slate-700">Visible</button>
+        </div>
+      </div>
+
+      <div>
+        <div class="text-lg text-slate-400 mb-2">Number of trials</div>
+        <div class="flex items-center gap-2">
+          <button onclick="nudgePrefNumTrials(-1)" class="text-lg w-9 h-9 rounded-lg bg-slate-700">-</button>
+          <span id="pref-num-trials-value" class="text-lg font-mono w-8 text-center">16</span>
+          <button onclick="nudgePrefNumTrials(1)" class="text-lg w-9 h-9 rounded-lg bg-slate-700">+</button>
+        </div>
+      </div>
+
+      <div>
+        <div class="text-lg text-slate-400 mb-2">Other options</div>
+        <div class="flex gap-2 flex-wrap">
+          <button id="pref-vibrate-btn" onclick="togglePrefBoolean('vibrate_after_trial')" class="text-lg px-4 py-2 rounded-lg bg-slate-700">Vibrate after trial</button>
+          <button id="pref-whole-track-btn" onclick="togglePrefBoolean('play_whole_track')" class="text-lg px-4 py-2 rounded-lg bg-slate-700">Play whole track</button>
+          <button id="pref-randomise-btn" onclick="togglePrefBoolean('randomise_sequence')" class="text-lg px-4 py-2 rounded-lg bg-slate-700">Randomise sequence</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <button onclick="addSongToPlaylist()"
     class="text-2xl px-6 py-4 rounded-2xl bg-slate-700 active:bg-slate-600 transition-colors mb-6 self-start">
     + Add Current Track

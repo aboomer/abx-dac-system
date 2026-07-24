@@ -74,3 +74,23 @@ export const patchSegment = (segmentId, patch) =>
   });
 export const deleteSegment = (segmentId) =>
   jsonFetch(`/api/segments/${segmentId}`, { method: "DELETE" });
+
+// --- Preferences (session setup fields) ---
+export const patchSessionSetup = (id, patch) =>
+  jsonFetch(`/api/session-setups/${id}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(patch),
+  });
+
+// --- Clicker mode ---
+export const setMode = (mode) =>
+  jsonFetch("/api/mode", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ mode }),
+  });
+
+// --- Free Play ---
+export const startFreePlay = () => jsonFetch("/api/free-play/start", { method: "POST" });
+export const stopFreePlay = () => jsonFetch("/api/free-play/stop", { method: "POST" });

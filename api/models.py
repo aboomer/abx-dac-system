@@ -91,3 +91,7 @@ class SegmentPatch(BaseModel):
     description: str | None = None
     start_delta: float | None = None
     end_delta: float | None = None
+
+
+class ModeIn(BaseModel):
+    mode: str
