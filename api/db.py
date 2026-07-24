@@ -137,7 +137,7 @@ def init_db():
                 correct           INTEGER CHECK (correct IN (0,1)),
 
                 navigation_count  INTEGER NOT NULL DEFAULT 0,
-                trial_started_at  TEXT NOT NULL,
+                trial_started_at  TEXT,
                 responded_at      TEXT,
 
                 UNIQUE (session_run_id, trial_index),

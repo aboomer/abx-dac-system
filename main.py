@@ -20,6 +20,7 @@ from api import (
     routes_playlist,
     routes_free_play,
     routes_calibration,
+    routes_sessions,
 )
 
 logging.basicConfig(level=logging.INFO)
@@ -122,6 +123,7 @@ app.include_router(routes_session_setups.router, prefix="/api")
 app.include_router(routes_playlist.router, prefix="/api")
 app.include_router(routes_free_play.router, prefix="/api/free-play")
 app.include_router(routes_calibration.router, prefix="/api/calibration")
+app.include_router(routes_sessions.router, prefix="/api/sessions")
 
 
 @app.get("/")
