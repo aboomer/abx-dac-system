@@ -15,6 +15,20 @@ from api.models import (
 router = APIRouter()
 
 
+def _raise_for_integrity_error(e: sqlite3.IntegrityError):
+    message = str(e)
+    if "UNIQUE constraint failed" in message:
+        raise HTTPException(
+            status_code=409, detail="A session setup with this name already exists for this profile"
+        )
+    if "CHECK constraint failed" in message:
+        raise HTTPException(
+            status_code=400,
+            detail="position_mode can only be 'continuous' when loop_mode is 'loop'",
+        )
+    raise HTTPException(status_code=400, detail=message)
+
+
 @router.get("/profiles/{profile_id}/session-setups", response_model=list[SessionSetupOut])
 async def list_session_setups(profile_id: int):
     conn = get_connection()
@@ -36,18 +50,19 @@ async def create_session_setup(profile_id: int, setup: SessionSetupIn):
         if not profile:
             raise HTTPException(status_code=404, detail="Profile not found")
 
+        if setup.test_type not in ("difference", "preference"):
+            raise HTTPException(status_code=400, detail="test_type must be 'difference' or 'preference'")
+
         now = utcnow_iso()
         try:
             cur = conn.execute(
-                """INSERT INTO session_setups (profile_id, name, created_at, updated_at)
-                   VALUES (?, ?, ?, ?)""",
-                (profile_id, setup.name, now, now),
+                """INSERT INTO session_setups (profile_id, name, test_type, created_at, updated_at)
+                   VALUES (?, ?, ?, ?, ?)""",
+                (profile_id, setup.name, setup.test_type, now, now),
             )
             conn.commit()
-        except sqlite3.IntegrityError:
-            raise HTTPException(
-                status_code=409, detail="A session setup with this name already exists for this profile"
-            )
+        except sqlite3.IntegrityError as e:
+            _raise_for_integrity_error(e)
 
         row = conn.execute(
             "SELECT * FROM session_setups WHERE id = ?", (cur.lastrowid,)
@@ -114,10 +129,8 @@ async def patch_session_setup(setup_id: int, patch: SessionSetupPatch):
                     (*values, utcnow_iso(), setup_id),
                 )
                 conn.commit()
-            except sqlite3.IntegrityError:
-                raise HTTPException(
-                    status_code=409, detail="A session setup with this name already exists for this profile"
-                )
+            except sqlite3.IntegrityError as e:
+                _raise_for_integrity_error(e)
 
         row = conn.execute("SELECT * FROM session_setups WHERE id = ?", (setup_id,)).fetchone()
         return dict(row)

@@ -30,30 +30,27 @@ class DacPathOut(BaseModel):
 
 class SessionSetupIn(BaseModel):
     name: str
+    test_type: str  # 'difference' | 'preference'
 
 
 class SessionSetupPatch(BaseModel):
     name: str | None = None
-    gap_mode: str | None = None
-    gap_seconds: float | None = None
+    test_type: str | None = None
+    loop_mode: str | None = None
+    position_mode: str | None = None
     vibrate_after_trial: bool | None = None
-    identity_mode: str | None = None
     num_trials: int | None = None
-    play_whole_track: bool | None = None
-    randomise_sequence: bool | None = None
 
 
 class SessionSetupOut(BaseModel):
     id: int
     profile_id: int
     name: str
-    gap_mode: str
-    gap_seconds: float
+    test_type: str
+    loop_mode: str
+    position_mode: str
     vibrate_after_trial: bool
-    identity_mode: str
     num_trials: int
-    play_whole_track: bool
-    randomise_sequence: bool
     created_at: str
     updated_at: str
 

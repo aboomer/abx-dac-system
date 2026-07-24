@@ -41,18 +41,18 @@ def init_db():
                 id                   INTEGER PRIMARY KEY AUTOINCREMENT,
                 profile_id           INTEGER NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
                 name                 TEXT NOT NULL,
-                gap_mode             TEXT NOT NULL DEFAULT 'fixed'
-                                         CHECK (gap_mode IN ('fixed','wait_button')),
-                gap_seconds          REAL NOT NULL DEFAULT 3.0,
+                test_type            TEXT NOT NULL CHECK (test_type IN ('difference','preference')),
+                loop_mode            TEXT NOT NULL DEFAULT 'loop'
+                                         CHECK (loop_mode IN ('loop','once')),
+                position_mode        TEXT NOT NULL DEFAULT 'restart'
+                                         CHECK (position_mode IN ('restart','continuous')),
                 vibrate_after_trial  INTEGER NOT NULL DEFAULT 0 CHECK (vibrate_after_trial IN (0,1)),
-                identity_mode        TEXT NOT NULL DEFAULT 'blind'
-                                         CHECK (identity_mode IN ('blind','alias','visible')),
-                num_trials           INTEGER NOT NULL DEFAULT 16,
-                play_whole_track     INTEGER NOT NULL DEFAULT 0 CHECK (play_whole_track IN (0,1)),
-                randomise_sequence   INTEGER NOT NULL DEFAULT 1 CHECK (randomise_sequence IN (0,1)),
+                num_trials           INTEGER NOT NULL DEFAULT 16
+                                         CHECK (num_trials > 0 AND num_trials % 2 = 0),
                 created_at           TEXT NOT NULL,
                 updated_at           TEXT NOT NULL,
-                UNIQUE (profile_id, name)
+                UNIQUE (profile_id, name),
+                CHECK (loop_mode = 'loop' OR position_mode = 'restart')
             )
         """)
         conn.execute("""
@@ -83,6 +83,69 @@ def init_db():
             )
         """)
         conn.execute("CREATE INDEX IF NOT EXISTS idx_playlist_segments_song ON playlist_segments(song_id)")
+
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS session_runs (
+                id                     INTEGER PRIMARY KEY AUTOINCREMENT,
+                profile_id             INTEGER NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
+                session_setup_id       INTEGER REFERENCES session_setups(id) ON DELETE SET NULL,
+                session_setup_name     TEXT NOT NULL,
+
+                song_id                INTEGER REFERENCES playlist_songs(id) ON DELETE SET NULL,
+                song_title             TEXT NOT NULL,
+                song_uri               TEXT NOT NULL,
+
+                segment_id             INTEGER REFERENCES playlist_segments(id) ON DELETE SET NULL,
+                segment_start_seconds  REAL NOT NULL,
+                segment_end_seconds    REAL NOT NULL,
+                segment_description    TEXT,
+
+                dac_path_1_id          INTEGER REFERENCES dac_paths(id) ON DELETE SET NULL,
+                dac_path_1_name        TEXT NOT NULL,
+                dac_path_2_id          INTEGER REFERENCES dac_paths(id) ON DELETE SET NULL,
+                dac_path_2_name        TEXT NOT NULL,
+
+                test_type              TEXT NOT NULL CHECK (test_type IN ('difference','preference')),
+                loop_mode              TEXT NOT NULL CHECK (loop_mode IN ('loop','once')),
+                position_mode          TEXT NOT NULL CHECK (position_mode IN ('restart','continuous')),
+                num_trials             INTEGER NOT NULL CHECK (num_trials > 0 AND num_trials % 2 = 0),
+                seed                   INTEGER NOT NULL,
+
+                started_at             TEXT NOT NULL,
+                completed_at           TEXT,
+                status                 TEXT NOT NULL DEFAULT 'in_progress'
+                                           CHECK (status IN ('in_progress','completed','abandoned')),
+
+                CHECK (dac_path_1_id IS NULL OR dac_path_2_id IS NULL OR dac_path_1_id != dac_path_2_id)
+            )
+        """)
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_session_runs_profile ON session_runs(profile_id)")
+
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS session_run_trials (
+                id                INTEGER PRIMARY KEY AUTOINCREMENT,
+                session_run_id    INTEGER NOT NULL REFERENCES session_runs(id) ON DELETE CASCADE,
+                trial_index       INTEGER NOT NULL CHECK (trial_index >= 0),
+
+                dac_a_path_id     INTEGER REFERENCES dac_paths(id) ON DELETE SET NULL,
+                dac_a_path_name   TEXT NOT NULL,
+                dac_b_path_id     INTEGER REFERENCES dac_paths(id) ON DELETE SET NULL,
+                dac_b_path_name   TEXT NOT NULL,
+
+                x_identity        TEXT CHECK (x_identity IN ('A','B')),
+                vote              TEXT CHECK (vote IN ('A','B','no_preference')),
+                correct           INTEGER CHECK (correct IN (0,1)),
+
+                navigation_count  INTEGER NOT NULL DEFAULT 0,
+                trial_started_at  TEXT NOT NULL,
+                responded_at      TEXT,
+
+                UNIQUE (session_run_id, trial_index),
+                CHECK (dac_a_path_id IS NULL OR dac_b_path_id IS NULL OR dac_a_path_id != dac_b_path_id)
+            )
+        """)
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_session_run_trials_run ON session_run_trials(session_run_id)")
+
         conn.commit()
     finally:
         conn.close()
